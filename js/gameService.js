@@ -175,7 +175,7 @@ export function createGameService(eventBus) {
     const shuffled = shuffle(deckSymbols);
     // map each entry to a Card object with the required state shape
     return shuffled.map((symbol, id) => ({
-      id: index,
+      id: id,
       symbol: symbol,
       isFlipped: false,
       isMatched: false,
@@ -332,9 +332,15 @@ export function createGameService(eventBus) {
         // capture IDs BEFORE clearing firstPickId and secondPickId
         const firstId = state.firstPickId;
         const secondId = state.secondPickId;
+
         state.firstPickId = null;
         state.secondPickId = null;
 
+        eventBus.emit("game:matchFound", {
+          firstId,
+          secondId,
+          matchCount: state.matchedCount,
+        });
         // check for Win Condition
         if (state.matchedCount === TOTAL_CARDS) {
           state.status = "won";
