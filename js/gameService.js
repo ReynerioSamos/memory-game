@@ -75,14 +75,29 @@
 
 // The 18 Belizean-themed symbols. Each one will appear on exactly two cards.
 const SYMBOLS = [
-  '🦜', '🐆', '🌊', '🏝️', '🐢', '🥥',
-  '🌴', '🥭', '🦈', '🐬', '🦩', '🐠',
-  '☀️',  '⛰️', '🌺', '🦎', '🦀', '🛶',
+  "🦜",
+  "🐆",
+  "🌊",
+  "🏝️",
+  "🐢",
+  "🥥",
+  "🌴",
+  "🥭",
+  "🦈",
+  "🐬",
+  "🦩",
+  "🐠",
+  "☀️",
+  "⛰️",
+  "🌺",
+  "🦎",
+  "🦀",
+  "🛶",
 ];
 
-const TOTAL_PAIRS = SYMBOLS.length;          // 18
-const TOTAL_CARDS = TOTAL_PAIRS * 2;         // 36
-const FLIP_BACK_DELAY_MS = 900;              // time to view a failed match
+const TOTAL_PAIRS = SYMBOLS.length; // 18
+const TOTAL_CARDS = TOTAL_PAIRS * 2; // 36
+const FLIP_BACK_DELAY_MS = 900; // time to view a failed match
 const TIMER_INTERVAL_MS = 1000;
 
 /**
@@ -92,8 +107,8 @@ const TIMER_INTERVAL_MS = 1000;
  * @returns {object} public API — { start, flipCard, restart, destroy }
  */
 export function createGameService(eventBus) {
-  if (!eventBus || typeof eventBus.emit !== 'function') {
-    throw new TypeError('createGameService requires an event bus.');
+  if (!eventBus || typeof eventBus.emit !== "function") {
+    throw new TypeError("createGameService requires an event bus.");
   }
 
   // -------------------------------------------------------------------------
@@ -103,15 +118,15 @@ export function createGameService(eventBus) {
 
   function createInitialState() {
     return {
-      status:         'idle',
-      cards:          [],
-      firstPickId:    null,
-      secondPickId:   null,
-      moves:          0,
+      status: "idle",
+      cards: [],
+      firstPickId: null,
+      secondPickId: null,
+      moves: 0,
       elapsedSeconds: 0,
-      matchedCount:   0,
-      isLocked:       false,
-      timerId:        null,
+      matchedCount: 0,
+      isLocked: false,
+      timerId: null,
     };
   }
 
@@ -130,7 +145,16 @@ export function createGameService(eventBus) {
     //   - Iterate from the end down to index 1.
     //   - Swap each element with a random earlier element (inclusive).
     //   - Return the shuffled clone.
-
+    // clone the input array first (do not mutate the argument)
+    const shuffled = [...arr];
+    // iterate from the end down to index 1, swapping each element with a random earlier element
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      // generate a random index j (inclusive of i)
+      const j = Math.floor(Math.random() * (i + 1));
+      // swap elements at indices i and j
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
   }
 
   /**
@@ -145,6 +169,17 @@ export function createGameService(eventBus) {
     //   - `id` is the card's index in the final shuffled array.
     //   - Return the resulting array.
 
+    //Produce a flat array with each symbol appearing twice
+    const deckSymbols = [...SYMBOLS, ...SYMBOLS];
+    //Shuffle it using shuffle()
+    const shuffled = shuffle(deckSymbols);
+    // map each entry to a Card object with the required state shape
+    return shuffled.map((symbol, id) => ({
+      id: index,
+      symbol: symbol,
+      isFlipped: false,
+      isMatched: false,
+    }));
   }
 
   /**
@@ -153,7 +188,7 @@ export function createGameService(eventBus) {
    */
   function getCardById(id) {
     // TODO (3): find and return the card with matching id, or undefined.
-
+    return state.cards.find((card) => card.id === id);
   }
 
   // -------------------------------------------------------------------------
@@ -168,12 +203,25 @@ export function createGameService(eventBus) {
     //       * emits 'game:timerTick' with { elapsedSeconds }
     //   - Store the interval id in state.timerId.
 
+    // if timer is already running, do nothing
+    if (state.timerId) return;
+
+    // Otherwise, set the timer interval and store the id in state.timerID
+    state.timerId = setInterval(() => {
+      // increments state.elapsedSeconds
+      state.elapsedSeconds++;
+      // emits 'game:timerTick' with { elapsedSeconds }
+      eventBus.emit("game:timerTick", { elapsedSeconds: state.elapsedSeconds });
+    }, TIMER_INTERVAL_MS);
   }
 
   function stopTimer() {
     // TODO (5):
-    //   - If state.timerId is not null, clearInterval and set timerId = null.
-
+    //   - If state.timerId is not null, clearInterval and set timerId = null
+    if (state.timerId !== null) {
+      clearInterval(state.timerId);
+      state.timerId = null;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -196,6 +244,26 @@ export function createGameService(eventBus) {
     // IMPORTANT: emit 'game:started' BEFORE starting the timer, so the UI
     // has the board on-screen before the first tick arrives.
 
+    // Stop any existing timer
+    stopTimer();
+
+    // Reset state to a fresh initial state
+    state = createInitialState();
+
+    // Populate state.cards with buildDeck()
+    state.cards = buildDeck();
+
+    // Set state.status = 'playing'
+    state.status = "playing";
+
+    // Emit 'game:started' with { cards: state.cards, totalPairs: TOTAL_PAIRS }
+    eventBus.emit("game:started", {
+      cards: state.cards,
+      totalPairs: TOTAL_PAIRS,
+    });
+
+    // Call startTimer()
+    startTimer();
   }
 
   /**
@@ -209,48 +277,95 @@ export function createGameService(eventBus) {
    *   - the card is already flipped or already matched
    *   - secondPickId is already set (can't pick a third)
    */
+  //
+  //       - Clear firstPickId and secondPickId.
+  //       - Emit 'game:matchFound' with
+  //           { firstId, secondId, matchedCount: state.matchedCount }.
+  //       - If state.matchedCount === TOTAL_CARDS:
+  //           * state.status = 'won'
+  //           * stopTimer()
+  //           * emit 'game:won' with { moves, elapsedSeconds }.
+  //
+  //     If they do NOT match:
+  //       - Set state.isLocked = true so further clicks are ignored.
+  //       - Emit 'game:matchFailed' with { firstId, secondId }.
+  //       - setTimeout FLIP_BACK_DELAY_MS to:
+  //           * flip both cards face-down (isFlipped = false)
+  //           * clear firstPickId and secondPickId
+  //           * set isLocked = false
+  //           * emit 'game:cardFlipped' is NOT appropriate here —
+  //             the UI handles the flip-back by listening to
+  //             'game:matchFailed' directly. Do not emit anything
+  //             new from inside this timeout.
   function flipCard(cardId) {
     // TODO (7): implement the full flip flow below.
     //
     // STEP A — validate. Return early on any rejection rule above.
-    //
+    if (state.status !== "playing") return;
+    if (state.isLocked) return;
+
+    const card = getCardById(cardId);
+    if (!card || card.isFlipped || card.isMatched) return;
+    if (state.secondPickId !== null) return;
     // STEP B — flip the card. Set its isFlipped = true and emit
     //   'game:cardFlipped' with { cardId, symbol }.
-    //
+    card.isFlipped = true;
+    eventBus.emit("game:cardFlipped", { cardId, symbol: card.symbol });
     // STEP C — decide which slot this pick fills.
-    //
-    //   If firstPickId is null:
-    //     * Set firstPickId = cardId. Done for this click.
-    //
-    //   Otherwise (this is the second pick):
-    //     * Set secondPickId = cardId.
-    //     * Increment state.moves and emit 'game:moveCountChanged'
-    //       with { moves: state.moves }.
-    //     * Look up both cards and compare their symbols.
-    //
-    //     If they match:
-    //       - Mark both cards as isMatched = true.
-    //       - Increment state.matchedCount by 2.
-    //       - Clear firstPickId and secondPickId.
-    //       - Emit 'game:matchFound' with
-    //           { firstId, secondId, matchedCount: state.matchedCount }.
-    //       - If state.matchedCount === TOTAL_CARDS:
-    //           * state.status = 'won'
-    //           * stopTimer()
-    //           * emit 'game:won' with { moves, elapsedSeconds }.
-    //
-    //     If they do NOT match:
-    //       - Set state.isLocked = true so further clicks are ignored.
-    //       - Emit 'game:matchFailed' with { firstId, secondId }.
-    //       - setTimeout FLIP_BACK_DELAY_MS to:
-    //           * flip both cards face-down (isFlipped = false)
-    //           * clear firstPickId and secondPickId
-    //           * set isLocked = false
-    //           * emit 'game:cardFlipped' is NOT appropriate here —
-    //             the UI handles the flip-back by listening to
-    //             'game:matchFailed' directly. Do not emit anything
-    //             new from inside this timeout.
+    if (state.firstPickId === null) {
+      // first card of the pair
+      state.firstPickId = cardId;
+    } else {
+      // second card of the pair
+      state.secondPickId = cardId;
+      state.moves++;
+      eventBus.emit("game:moveCountChanged", { moves: state.moves });
 
+      const firstCard = getCardById(state.firstPickId);
+
+      // compare the two cards
+      if (firstCard && firstCard.symbol === card.symbol) {
+        // cards match, mark them as matched
+        firstCard.isMatched = true;
+        card.isMatched = true;
+        state.matchedCount += 2;
+        // capture IDs BEFORE clearing firstPickId and secondPickId
+        const firstId = state.firstPickId;
+        const secondId = state.secondPickId;
+        state.firstPickId = null;
+        state.secondPickId = null;
+
+        // check for Win Condition
+        if (state.matchedCount === TOTAL_CARDS) {
+          state.status = "won";
+          stopTimer();
+          eventBus.emit("game:won", {
+            moves: state.moves,
+            elapsedSeconds: state.elapsedSeconds,
+          });
+        }
+      } else {
+        state.isLocked = true;
+        // match failed
+        eventBus.emit("game:matchFailed", {
+          firstId: state.firstPickId,
+          secondId: state.secondPickId,
+        });
+
+        // internal timeout to reset state
+        setTimeout(() => {
+          const c1 = getCardById(state.firstPickId);
+          const c2 = getCardById(state.secondPickId);
+
+          if (c1) c1.isFlipped = false;
+          if (c2) c2.isFlipped = false;
+
+          state.isLocked = false;
+          state.firstPickId = null;
+          state.secondPickId = null;
+        }, FLIP_BACK_DELAY_MS);
+      }
+    }
   }
 
   /**
@@ -260,7 +375,7 @@ export function createGameService(eventBus) {
    */
   function restart() {
     // TODO (8): call start(). That's it.
-
+    start();
   }
 
   /**
