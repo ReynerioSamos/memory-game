@@ -88,6 +88,13 @@ export function createEventEmitter() {
       return;
     }
 
+    // console print for emitters, will be commented out when application works, kept for debugging
+    /*
+    console.info(
+      `Triggering event "${eventName}" for ${listeners[eventName].length} listeners`,
+    );
+    */
+
     // otherwise call every listener with `payload`
     listeners[eventName].forEach((listener) => {
       // wrap each call in a try/catch so one bad listener does not break the others
