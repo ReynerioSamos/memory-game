@@ -339,7 +339,7 @@ export function createGameService(eventBus) {
         eventBus.emit("game:matchFound", {
           firstId,
           secondId,
-          matchCount: state.matchedCount,
+          matchedCount: state.matchedCount,
         });
         // check for Win Condition
         if (state.matchedCount === TOTAL_CARDS) {
