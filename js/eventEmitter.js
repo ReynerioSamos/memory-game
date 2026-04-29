@@ -46,12 +46,16 @@ export function createEventEmitter() {
     //   - Push `listener` into that array.
     //   - Validate that `listener` is a function; otherwise throw a
     //     TypeError with a clear message (fail loud, fail early).
+
+    // validation for listener
     if (typeof listener !== "function") {
       throw new TypeError("Listener must be a function");
     }
+    // if no array for eventName, create one
     if (!listeners[eventName]) {
       listeners[eventName] = [];
     }
+    // push listener into array
     listeners[eventName].push(listener);
   }
 
@@ -61,9 +65,14 @@ export function createEventEmitter() {
     //   - Otherwise remove ONLY the matching listener reference.
     //   - Do not mutate the array in place in a way that breaks a
     //     concurrent `emit` iteration — filter into a new array instead.
+
+    // if no array for eventName, return quietly
     if (!listeners[eventName]) {
       return;
     }
+
+    // otherwise remove ONLY the matching listener reference
+    // filter into a new array
     listeners[eventName] = listeners[eventName].filter((ln) => ln !== listener);
   }
 
@@ -73,10 +82,15 @@ export function createEventEmitter() {
     //   - Otherwise call every listener with `payload`.
     //   - Wrap each call in a try/catch so one bad listener does not
     //     break the others. Log errors with console.error.
+
+    // if no array for eventName, return
     if (!listeners[eventName]) {
       return;
     }
+
+    // otherwise call every listener with `payload`
     listeners[eventName].forEach((listener) => {
+      // wrap each call in a try/catch so one bad listener does not break the others
       try {
         listener(payload);
       } catch (error) {
