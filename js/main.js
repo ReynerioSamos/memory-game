@@ -15,13 +15,19 @@
 // They are decoupled. That is the Observer Pattern in one picture.
 // ============================================================================
 
-import { createEventEmitter } from './eventEmitter.js';
-import { createGameService }  from './gameService.js';
-import { createUI }           from './ui.js';
+import { createEventEmitter } from "./eventEmitter.js";
+import { createGameService } from "./gameService.js";
+import { createUI } from "./ui.js";
 
-const eventBus    = createEventEmitter();
+const eventBus = createEventEmitter();
 const gameService = createGameService(eventBus);
-const ui          = createUI(eventBus, gameService, document.body);
+const ui = createUI(eventBus, gameService, document.body);
 
 ui.mount();
 gameService.start();
+
+// Testing Event Emitter - Comment out later
+// Should pass if 42 is heard when loading index.html on Live Server
+const bus = createEventEmitter();
+bus.on("ping", (x) => console.log("heard", x));
+bus.emit("ping", 42);
