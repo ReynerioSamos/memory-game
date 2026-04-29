@@ -25,9 +25,3 @@ const ui = createUI(eventBus, gameService, document.body);
 
 ui.mount();
 gameService.start();
-
-// Testing Event Emitter - Comment out later
-// Should pass if 42 is heard when loading index.html on Live Server
-const bus = createEventEmitter();
-bus.on("ping", (x) => console.log("heard", x));
-bus.emit("ping", 42);

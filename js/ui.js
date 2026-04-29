@@ -45,15 +45,15 @@ export function createUI(eventBus, gameService, rootEl) {
   // DOM element cache — resolved once on mount.
   // -------------------------------------------------------------------------
   const els = {
-    board:       null,
-    moves:       null,
-    timer:       null,
-    matched:     null,
-    restart:     null,
-    playAgain:   null,
-    winOverlay:  null,
-    winMoves:    null,
-    winTime:     null,
+    board: null,
+    moves: null,
+    timer: null,
+    matched: null,
+    restart: null,
+    playAgain: null,
+    winOverlay: null,
+    winMoves: null,
+    winTime: null,
   };
 
   // Track the subscriptions we create so we can clean them up in unmount().
@@ -66,7 +66,7 @@ export function createUI(eventBus, gameService, rootEl) {
   function formatTime(totalSeconds) {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
   }
 
   // -------------------------------------------------------------------------
@@ -95,6 +95,37 @@ export function createUI(eventBus, gameService, rootEl) {
     //   - Set the span's textContent to card.symbol.
     //   - Return the button element.
 
+    // create the outer button container, set data-card to card.id
+    const btn = document.createElement("button");
+    btn.classList.add("card");
+    btn.type = "button";
+    btn.dataset.cardId = card.id;
+
+    // create the inner wrapper for 3D flip
+    const inner = document.createElement("div");
+    inner.classList.add("card-inner");
+
+    // create the back of the card (reef pattern)
+    const back = document.createElement("div");
+    back.classList.add("card-face", "card-back");
+
+    // create the front of the card (symbol)
+    const front = document.createElement("div");
+    front.classList.add("card-face", "card-front");
+
+    // Create the symbol element and set its textContent to card.symbol.
+    const span = document.createElement("span");
+    span.textContent = card.symbol;
+
+    // Add the symbol to the front of the card.
+    front.appendChild(span);
+    // Add the back and front to the inner wrapper.
+    inner.append(back, front);
+    // Add the inner wrapper to the button.
+    btn.appendChild(inner);
+
+    // Return the button element.
+    return btn;
   }
 
   /**
@@ -108,6 +139,21 @@ export function createUI(eventBus, gameService, rootEl) {
     //   - For performance, build into a DocumentFragment first, then
     //     append the fragment once.
 
+    // Clear the board using replaceChildren()
+    els.board.replaceChildren();
+
+    // Create a fragment to hold the new cards in memory
+    const fragment = document.createDocumentFragment();
+
+    // for each card, build its element
+    cards.forEach((card) => {
+      const cardEl = buildCardElement(card);
+      // then append it to the fragment
+      fragment.appendChild(cardEl);
+    });
+
+    // then append the fragment to the board
+    els.board.appendChild(fragment);
   }
 
   /**
@@ -119,23 +165,27 @@ export function createUI(eventBus, gameService, rootEl) {
     //   - Set timer display to "0:00".
     //   - Set matched display to `0 / ${totalPairs}`.
 
+    els.moves.textContent = "0";
+    els.timer.textContent = "0:00";
+    els.matched.textContent = `0 / ${totalPairs}`;
   }
 
   function updateMoves(moves) {
     // TODO (4): set els.moves.textContent to moves (coerced to string).
-
+    els.moves.textContent = moves.toString();
   }
 
   function updateTimer(elapsedSeconds) {
     // TODO (5): set els.timer.textContent using formatTime(elapsedSeconds).
-
+    els.timer.textContent = formatTime(elapsedSeconds);
   }
 
-  function updateMatchedCount(matchedCardCount) {
+  function updateMatchedCount(matchedCount) {
     // TODO (6):
-    //   - matchedCardCount is CARDS matched, not pairs. Divide by 2.
+    //   - matchedCount is CARDS matched, not pairs. Divide by 2.
     //   - Set els.matched.textContent to `${pairs} / ${TOTAL_PAIRS}`.
-
+    const pairs = Math.floor(matchedCount / 2);
+    els.matched.textContent = `${pairs} / ${TOTAL_PAIRS}`;
   }
 
   /**
@@ -146,7 +196,10 @@ export function createUI(eventBus, gameService, rootEl) {
     //   - Query els.board for `[data-card-id="${cardId}"]`.
     //   - If found, add the 'is-flipped' class.
     //   - Guard against missing nodes (don't throw if the element is gone).
-
+    const card = els.board.querySelector(`[data-card-id="${cardId}"]`);
+    if (card) {
+      card.classList.add("is-flipped");
+    }
   }
 
   /**
@@ -156,7 +209,14 @@ export function createUI(eventBus, gameService, rootEl) {
   function markCardsMatched(firstId, secondId) {
     // TODO (8): add 'is-matched' class to both cards' elements.
     //           (They already have 'is-flipped' from the earlier event.)
-
+    const firstCard = els.board.querySelector(`[data-card-id="${firstId}"]`);
+    const secondCard = els.board.querySelector(`[data-card-id="${secondId}"]`);
+    if (firstCard) {
+      firstCard.classList.add("is-matched");
+    }
+    if (secondCard) {
+      secondCard.classList.add("is-matched");
+    }
   }
 
   /**
@@ -165,7 +225,14 @@ export function createUI(eventBus, gameService, rootEl) {
    */
   function flipCardsFaceDown(firstId, secondId) {
     // TODO (9): remove 'is-flipped' from both card elements.
-
+    const firstCard = els.board.querySelector(`[data-card-id="${firstId}"]`);
+    const secondCard = els.board.querySelector(`[data-card-id="${secondId}"]`);
+    if (firstCard) {
+      firstCard.classList.remove("is-flipped");
+    }
+    if (secondCard) {
+      secondCard.classList.remove("is-flipped");
+    }
   }
 
   function showWinOverlay(moves, elapsedSeconds) {
@@ -174,14 +241,18 @@ export function createUI(eventBus, gameService, rootEl) {
     //   - Set els.winTime.textContent to formatTime(elapsedSeconds).
     //   - Add 'is-visible' class to els.winOverlay.
     //   - Set aria-hidden="false" on els.winOverlay.
-
+    els.winMoves.textContent = moves.toString();
+    els.winTime.textContent = formatTime(elapsedSeconds);
+    els.winOverlay.classList.add("is-visible");
+    els.winOverlay.setAttribute("aria-hidden", "false");
   }
 
   function hideWinOverlay() {
     // TODO (11):
     //   - Remove 'is-visible' class from els.winOverlay.
     //   - Set aria-hidden="true" on els.winOverlay.
-
+    els.winOverlay.classList.remove("is-visible");
+    els.winOverlay.setAttribute("aria-hidden", "true");
   }
 
   // -------------------------------------------------------------------------
@@ -201,12 +272,16 @@ export function createUI(eventBus, gameService, rootEl) {
     //
     //   DO NOT check any game rules here. The service decides whether
     //   a flip is valid. The UI just forwards the intent.
+    const cardEl = domEvent.target.closest(".card");
+    if (!cardEl) return;
 
+    const cardId = Number(cardEl.dataset.cardId);
+    gameService.flipCard(cardId);
   }
 
   function onRestartClick() {
     // TODO (13): call gameService.restart().
-
+    gameService.restart();
   }
 
   // -------------------------------------------------------------------------
@@ -233,28 +308,67 @@ export function createUI(eventBus, gameService, rootEl) {
     //   For 'game:matchFailed', remember to setTimeout the flip-back
     //   by FLIP_BACK_DELAY_MS before calling flipCardsFaceDown.
 
-  }
+    // started event SUBSCRIPTION
+    subscribe("game:started", ({ cards, totalPairs }) => {
+      renderBoard(cards);
+      resetHud(totalPairs);
+      hideWinOverlay();
+    });
 
+    // cardFlipped event SUBSCRIPTION
+    subscribe("game:cardFlipped", ({ cardId }) => {
+      flipCardFaceUp(cardId);
+    });
+
+    // matchFound event SUBSCRIPTION
+    subscribe("game:matchFound", ({ firstId, secondId, matchedCount }) => {
+      markCardsMatched(firstId, secondId);
+      updateMatchedCount(matchedCount);
+    });
+
+    // matchFailed event SUBSCRIPTION
+    subscribe("game:matchFailed", ({ firstId, secondId }) => {
+      //setTimeout the flip back
+      setTimeout(() => {
+        flipCardsFaceDown(firstId, secondId);
+      }, FLIP_BACK_DELAY_MS);
+    });
+
+    //moveCountChanged event SUBSCRIPTION
+    subscribe("game:moveCountChanged", ({ moves }) => {
+      updateMoves(moves);
+    });
+
+    // timerTick event SUBSCRIPTION
+    subscribe("game:timerTick", ({ elapsedSeconds }) => {
+      updateTimer(elapsedSeconds);
+    });
+
+    // won event SUBSCRIPTION
+    subscribe("game:won", ({ moves, elapsedSeconds }) => {
+      showWinOverlay(moves, elapsedSeconds);
+    });
+  }
   // -------------------------------------------------------------------------
   // LIFECYCLE
   // -------------------------------------------------------------------------
 
   function mount() {
     // Resolve DOM refs.
-    els.board      = rootEl.querySelector('[data-role="board"]');
-    els.moves      = rootEl.querySelector('[data-role="moves"]');
-    els.timer      = rootEl.querySelector('[data-role="timer"]');
-    els.matched    = rootEl.querySelector('[data-role="matched"]');
-    els.restart    = rootEl.querySelector('[data-role="restart"]');
-    els.playAgain  = rootEl.querySelector('[data-role="play-again"]');
+    els.board = rootEl.querySelector('[data-role="board"]');
+    els.moves = rootEl.querySelector('[data-role="moves"]');
+    els.timer = rootEl.querySelector('[data-role="timer"]');
+    els.matched = rootEl.querySelector('[data-role="matched"]');
+    els.restart = rootEl.querySelector('[data-role="restart"]');
+    els.playAgain = rootEl.querySelector('[data-role="play-again"]');
     els.winOverlay = rootEl.querySelector('[data-role="win-overlay"]');
-    els.winMoves   = rootEl.querySelector('[data-role="win-moves"]');
-    els.winTime    = rootEl.querySelector('[data-role="win-time"]');
+    els.winMoves = rootEl.querySelector('[data-role="win-moves"]');
+    els.winTime = rootEl.querySelector('[data-role="win-time"]');
 
     // Attach DOM listeners.
-    els.board.addEventListener('click', onBoardClick);
-    els.restart.addEventListener('click', onRestartClick);
-    els.playAgain.addEventListener('click', onRestartClick);
+    els.board.addEventListener("click", onBoardClick);
+    els.restart.addEventListener("click", onRestartClick);
+    els.playAgain.addEventListener("click", onRestartClick);
 
     // Subscribe to service events.
     wireSubscriptions();
@@ -262,9 +376,9 @@ export function createUI(eventBus, gameService, rootEl) {
 
   function unmount() {
     // Detach DOM listeners.
-    els.board.removeEventListener('click', onBoardClick);
-    els.restart.removeEventListener('click', onRestartClick);
-    els.playAgain.removeEventListener('click', onRestartClick);
+    els.board.removeEventListener("click", onBoardClick);
+    els.restart.removeEventListener("click", onRestartClick);
+    els.playAgain.removeEventListener("click", onRestartClick);
 
     // Detach all bus subscriptions we created.
     subscriptions.forEach(({ event, handler }) => eventBus.off(event, handler));
